@@ -1,3 +1,14 @@
+################################################################################
+#######       Glacier elevation change inferred from cast shadows         ######
+#######                                                                   ######
+#######                            by Georg Veh                           ######
+#######                          August 21, 2023                          ######
+################################################################################
+
+
+# Load packages. Use 'install.packages('packagename'), if you haven't installed
+# the packages before.
+
 library(ggplot2)
 library(tidyverse)
 library(readr)
@@ -6,17 +17,26 @@ require(modelr)
 require(tidybayes)
 require(readxl)
 require(lubridate)
+require(ggdist)
+
+# Set workspace
 
 workspace <- "D:/data/BoxUP/shadow paper/data/d_change"
 setwd(workspace)
 
-gradients <- read_excel("alt/glacier_gradients.xlsx") %>%
+# Read excel sheet that contains the gradient of the glacier on the shaded
+# surface
+
+gradients <- read_excel("second submission/alt/glacier_gradients.xlsx") %>%
   as_tibble() %>%
   rename(Glacier = ...1)
 
-# Read data
+# Read data: bearing lines for each glacier in specific years.
+# We set the median elevation change in the year 2000 as zero.
 
-Sperry_gesamt <- read.table("final/data_Sperry_strtm_bereinigt.csv", 
+# Sperry Glacier
+
+Sperry_gesamt <- read.table("second submission/final/data_Sperry_srtm_bereinigt.csv", 
                             dec = ",", sep = ";",
                             header = T) %>%
   as_tibble() %>%
@@ -33,8 +53,9 @@ Sperry_gesamt$dh_y0 <- Sperry_gesamt$dh -
                        median(Sperry_gesamt$dh[Sperry_gesamt$Year == 2000], 
                               na.rm = T)
 
+# South Cascade Glacier
 
-SouthCascade_gesamt <- read.table("final/data_SouthCascade_srtm.csv", 
+SouthCascade_gesamt <- read.table("second submission/final/data_SouthCascade_srtm.csv", 
                                   dec = ",", header = T) %>%
   as_tibble() %>%
   transmute(Year = .$Year,
@@ -50,9 +71,15 @@ SouthCascade_gesamt$dh_y0 <- SouthCascade_gesamt$dh -
   median(SouthCascade_gesamt$dh[SouthCascade_gesamt$Year == 2000], 
          na.rm = T)
 
-Gulkana_West <- read.table("final/data_GulkanaShadowIcefallPeak_bereinigt.csv", 
-                           dec = ",", sep = ";", header = T) %>%
-  as_tibble() %>%
+# Gulkana, Shadow from Ogive Mountain
+
+Gulkana_West <- read.table("second submission/final/data_GulkanaShadowOgiveMountain_bereinigt.csv", 
+                           dec = ".", sep = ",", header = T) %>%
+  as_tibble() %>% 
+  mutate(d_Change_mit_Vorzeichen = as.numeric(str_replace_all(d_Change_mit_Vorzeichen, 
+                                                              pattern = ",", replacement = ".")),
+         Elevation = as.numeric(str_replace_all(Elevation, 
+                                                pattern = ",", replacement = "."))) %>%
   transmute(Year = as.numeric(str_sub(Year, 1,4)),
             dh = d_Change_mit_Vorzeichen*(tan(Elevation*pi/180) - 
                              tan(gradients %>% 
@@ -67,9 +94,15 @@ Gulkana_West <- read.table("final/data_GulkanaShadowIcefallPeak_bereinigt.csv",
 Gulkana_West$dh_y0 <- Gulkana_West$dh - 
   median(Gulkana_West$dh[Gulkana_West$Year == 1999], na.rm = T)
 
-Gulkana_East <- read.table("final/data_GulkanaShadowOgiveMountain_bereinigt.csv", 
-                           dec = ",", sep = ";", header = T) %>%
-  as_tibble() %>%
+# Gulkana, Shadow from Icefall Peak
+
+Gulkana_East <- read.table("second submission/final/data_GulkanaShadowIcefallPeak_bereinigt.csv", 
+                           dec = ".", sep = ",", header = T) %>%
+  as_tibble() %>% 
+  mutate(d_Change_mit_Vorzeichen = as.numeric(str_replace_all(d_Change_mit_Vorzeichen, 
+                                                              pattern = ",", replacement = ".")),
+         Elevation = as.numeric(str_replace_all(Elevation, 
+                                                pattern = ",", replacement = "."))) %>% 
   transmute(Year = as.numeric(str_sub(Year, 1,4)), 
             dh = d_Change_mit_Vorzeichen*(tan(Elevation*pi/180) - 
                              tan(gradients %>% 
@@ -78,13 +111,17 @@ Gulkana_East <- read.table("final/data_GulkanaShadowOgiveMountain_bereinigt.csv"
             prev_mb = NA,
             Glacier = "Gulkana East") 
 
+# Gulkana doesn't have an observation in 1999, so we normalise the values
+# to 1999.
+
 Gulkana_East$dh_y0 <- Gulkana_East$dh - 
-  median(Gulkana_East$dh[Gulkana_East$Year == 1999], na.rm = T)
+  median(Gulkana_East$dh[Gulkana_East$Year == 1999], na.rm = T) 
 
+# Baltoro Glacier
 
-Baltoro_srtm_view_gesamt <- read.table("final/data_Baltoro_srtm_vfp_bereinigt.csv", 
+Baltoro_srtm_view_gesamt <- read.table("second submission/final/data_Baltoro_srtm_vfp_bereinigt.csv", 
                                        sep = ";", dec = ",", header = T) %>%
-  as_tibble() %>%
+  as_tibble() %>% 
   transmute(Year = as.numeric(Year),
             dh = d_Change*(tan(Elevation*pi/180) - 
                              tan(gradients %>% 
@@ -97,8 +134,9 @@ Baltoro_srtm_view_gesamt$dh_y0 <- Baltoro_srtm_view_gesamt$dh -
   median(Baltoro_srtm_view_gesamt$dh[Baltoro_srtm_view_gesamt$Year == 2000], 
          na.rm = T)
 
+# Great Aletsch Glacier
 
-Aletsch_gesamt <- read.table("final/data_Aletsch_swisstopo_bereinigt.csv", 
+Aletsch_gesamt <- read.table("second submission/final/data_Aletsch_swisstopo_bereinigt.csv", 
                              sep = ";", dec = ",", header = T) %>%
   as_tibble() %>%
   transmute(Year = as.numeric(Year),
@@ -113,10 +151,13 @@ Aletsch_gesamt$dh_y0 <- Aletsch_gesamt$dh -
   median(Aletsch_gesamt$dh[Aletsch_gesamt$Year == 2000], 
          na.rm = T)
 
+# Function to normalise values
 
 scale_this <- function(x){
   (x - mean(x, na.rm = TRUE)) / sd(x, na.rm = TRUE)
 }
+
+# Combine all observations to one tibble
 
 all_glaciers <- bind_rows(Sperry_gesamt, 
                           SouthCascade_gesamt,
@@ -160,8 +201,10 @@ all_glaciers %>%
   View()
 
 #----------------------------------
-# add linear regression with posterior 95% highest density interval
+# Learn a hierarchical linear regression model of elevation change against time
 #----------------------------------
+
+# Filter data and scale them to zero mean and unit standard deviation
 
 glacier.dat <- all_glaciers %>%
   filter(!is.na(Year), 
@@ -175,11 +218,15 @@ glacier.dat <- all_glaciers %>%
          prev_mb_scale = scale_this(prev_mb)) %>% 
   mutate(id = 1: n())
 
+# We use weakly informed normal priors
+
 bprior <- prior(normal(0, 2.5), class = "Intercept") +
   prior(normal(0, 2.5), class = "b") +
   prior(normal(0, 2.5), class = "sd") +
   prior(normal(0, 2.5), class = "sigma") +
   prior(constant(3), class = "nu")
+
+# Learn the model using a Student's t likelihood, which is robust against outliers.
 
 brm.dh_y0  <- brm(dh_y0_scale ~ year_scale + ( year_scale | Glacier),
                   family  = student(),
@@ -194,9 +241,11 @@ brm.dh_y0  <- brm(dh_y0_scale ~ year_scale + ( year_scale | Glacier),
                   backend = "cmdstanr",
                   threads = threading(3))
 
+# Save the model to disk.
+
 saveRDS(brm.dh_y0, "elev_ch_geodetic_lines_brms.RDS")
 
-# Original parameters
+# Obtain the original distributional parameters of the data.
 
 sd_y       <- sd(glacier.dat$dh_y0)
 mean_y     <- mean(glacier.dat$dh_y0) 
@@ -205,13 +254,13 @@ mean_x     <- mean(glacier.dat$Year)
 mod.levels <- unique(glacier.dat$Glacier)
 
 # Define the range, for which new predictions will be made.
-# ... on original scale
+# ... on original scale.
 
 seq.x.orig <- seq(from = min(glacier.dat$Year)-2,
                   to =   max(glacier.dat$Year)+2,
                   length.out = 132)
 
-# ... and on scaled range
+# ... and on scaled range.
 
 seq.x.scaled <- (seq.x.orig - mean_x) / sd_x
 
@@ -236,7 +285,7 @@ post_epred  <- posterior_epred(brm.dh_y0,
   mutate(prediction = (prediction*sd_y) + mean_y) %>%
   dplyr::select(-name) 
 
-# Extract posterior trends
+# Extract the posterior trends (i.e. the slope of the model).
 
 slopes.cond <- tidy_draws(brm.dh_y0) %>% 
   pivot_longer(starts_with("r_Glacier"),
@@ -249,6 +298,9 @@ slopes.cond <- tidy_draws(brm.dh_y0) %>%
          post_orig = b_year_scale + post,
          post_orig = post_orig  * sd_y / sd_x) 
 
+# Obtain the posterior summary of the trend, i.e. median and 95% HDI.
+# That information will be shown in the plot in the lower left corner of each
+# panel.
 
 trend.dh_y0.hdi <- slopes.cond %>% 
   group_by(Glacier) %>% 
@@ -265,6 +317,8 @@ min_y <- glacier.dat %>%
   summarise(min_y = quantile(dh_y0, 0.025))
 
 trend.dh_y0.hdi <- left_join(trend.dh_y0.hdi, min_y, by = "Glacier")
+
+# Plot the estimated trend and original data from the bearing lines as boxplots.
 
 elev.ch <- post_epred %>%
   ggplot() +
@@ -314,9 +368,15 @@ ggsave(
 )
 
 
-### Previous Elevation change
+#-------------------------------------------------------------------------------
+# Compare our trends against independent data from previous publications such
+# as historic digital elevation models.
+#-------------------------------------------------------------------------------
 
-dat.valid <- read.csv2(file = "D:/data/BoxUP/shadow paper/dem_validation/All_DEMs_validation.txt",
+# Read the validation data to memory and standardise them to zero mean
+# and unit standard deviation.
+
+dat.valid <- read.csv2(file = "D:/data/BoxUP/shadow paper/dem_validation/Topochange_update/All_DEMs_validation2.txt",
                        header = T,
                        sep = "\t",
                        dec = ",") %>% 
@@ -327,11 +387,15 @@ dat.valid <- read.csv2(file = "D:/data/BoxUP/shadow paper/dem_validation/All_DEM
          year_scale = scale_this(year),
          dh_y0_scale = scale_this(dh_y0)) 
 
+# Use the same weakly informed priors as above.
+
 bprior <- prior(normal(0, 2.5), class = "Intercept") +
   prior(normal(0, 2.5), class = "b") +
   prior(normal(0, 2.5), class = "sd") +
   prior(normal(0, 2.5), class = "sigma") +
   prior(constant(3), class = "nu")
+
+# Learn the model for the validation data.
 
 brm.valid  <- brm(dh_y0_scale ~ year_scale + ( year_scale | Glacier),
                   family  = student(),
@@ -346,9 +410,11 @@ brm.valid  <- brm(dh_y0_scale ~ year_scale + ( year_scale | Glacier),
                   backend = "cmdstanr",
                   threads = threading(3))
 
+# Save the model to disk.
+
 saveRDS(brm.valid, "elev_validation_brms.RDS")
 
-# Original parameters
+# Original mean and standard deviation of the data.
 
 sd_y       <- sd(dat.valid$dh_y0)
 mean_y     <- mean(dat.valid$dh_y0) 
@@ -388,7 +454,7 @@ post_epred  <- posterior_epred(brm.valid,
   mutate(prediction = (prediction*sd_y) + mean_y) %>%
   dplyr::select(-name) 
 
-# Extract posterior trends
+# Extract posterior trends from the model learned from the validation data.
 
 slopes.cond <- tidy_draws(brm.valid) %>% 
   pivot_longer(starts_with("r_Glacier"),
@@ -401,6 +467,7 @@ slopes.cond <- tidy_draws(brm.valid) %>%
          post_orig = b_year_scale + post,
          post_orig = post_orig  * sd_y / sd_x) 
 
+# Obtain median and 95% HDI from the trends of the validation model.
 
 trend.valid.hdi <- slopes.cond %>% 
   group_by(Glacier) %>% 
@@ -418,54 +485,14 @@ min_y <- dat.valid %>%
 
 trend.valid.hdi <- left_join(trend.valid.hdi, min_y, by = "Glacier")
 
-# elev.valid <- post_epred %>%
-#   ggplot() +
-#   facet_wrap(~Glacier, 
-#              scales = "free",
-#              ncol = 5) +
-#   stat_lineribbon(aes(x = Year, 
-#                       y = prediction),
-#                   .width = c(.95), 
-#                   alpha = 0.6,
-#                   size = 0.8,
-#                   point_interval = mean_qi) + 
-#   scale_fill_manual("",
-#                     labels = "95% posterior HDI",
-#                     values = "darkorange4") +
-#   geom_point(data = dat.valid , 
-#              aes(x = year,
-#                  y = dh_y0),
-#              shape = 21,
-#              fill = "lightblue") +
-#   labs(x = "Year" ,
-#        y = "Elevation change [m]") +
-#   theme_bw()   +
-#   geom_text(data  = trend.valid.hdi,
-#             aes(x = 1960, y = min_y, label = hdi),
-#             size = 2.2,
-#             colour = "gray10",
-#             inherit.aes = FALSE,
-#             parse = FALSE,
-#             hjust = "left") +
-#   theme( axis.text   = element_text(size = 7),
-#          axis.text.x = element_text(size = 7),
-#          axis.title  = element_text(size = 7),
-#          strip.text  = element_text(size = 7),
-#          legend.position = "none")
-# 
-# ggsave(
-#   filename = "regression_valid.pdf",
-#   plot = elev.valid,
-#   width = 180,
-#   height = 50,
-#   units = "mm"
-# )
-
-################################################################################
+# We will plot the trend values in the lower left corner
 
 min.year <- all_glaciers %>%
   group_by(Glacier) %>%
   summarise(min_year = min(Year, na.rm = T))
+
+# Now we run the same model only for the Landsat era (1985 to present). All code
+# is the same as above and left largely uncommented.
 
 dat.valid.1985 <- dat.valid %>%
   filter(! (Glacier == "Great Aletsch" & year < min.year$min_year[min.year$Glacier == "Great Aletsch"]),
@@ -546,7 +573,7 @@ post_epred.1985 <- posterior_epred(brm.valid.1985,
   mutate(prediction = (prediction*sd_y) + mean_y) %>%
   dplyr::select(-name) 
 
-# Extract posterior trends
+# Extract posterior trends.
 
 slopes.cond <- tidy_draws(brm.valid.1985) %>% 
   pivot_longer(starts_with("r_Glacier"),
@@ -559,6 +586,7 @@ slopes.cond <- tidy_draws(brm.valid.1985) %>%
          post_orig = b_year_scale + post,
          post_orig = post_orig  * sd_y / sd_x) 
 
+# Obtain the posterior trend in the Landsat period (1985 to present).
 
 trend.valid.1985.hdi <- slopes.cond %>% 
   group_by(Glacier) %>% 
@@ -575,6 +603,11 @@ min_y <- dat.valid.1985 %>%
   summarise(min_y = quantile(dh_y0, 0.025))
 
 trend.valid.1985.hdi <- left_join(trend.valid.1985.hdi, min_y, by = "Glacier")
+
+# Figure 4: Plot the trend of glacier elevation change from independent validation 
+# using blue for the Landsat era and orange for the entire period.
+# The original data that were used to train the model are distinguished by black 
+# and grey bubbles.
 
 elev.valid.1985 <- rbind(post_epred.1985 %>% mutate(period = "gt1985"),
                          post_epred %>% mutate(period = "all")) %>%
@@ -647,32 +680,26 @@ ggsave(
 )
 
 
-################################################################################
+#-------------------------------------------------------------------------------
+# Compare our trends against data from Hugonnet et al. (2021)
+#-------------------------------------------------------------------------------
 
-# COMPARISON WITH HUGONNET
+# Read the data provided by Romain Hugonnet to disk. These data
+# are estimates from a Gaussian process regression model fit to time series
+# of ASTER DEMs between 2000 and 2019. The data are split 
+# into different tables according to RGI regions. 
 
-################################################################################
+setwd("D:/data/BoxUP/shadow paper/data/Romain/pfau_shadows_v3")
 
-setwd("D:/data/BoxUP/shadow paper/data/Romain/pfau_shadows_v2")
-
-require(tidyverse)
-require(ggdist)
-
-raw.0102.old <- read_csv("D:/data/BoxUP/shadow paper/data/Romain/pfau_shadows/dh_01_02_rgi60_int.csv")
-raw.0102.old <- raw.0102.old %>%
-  mutate(rgiid = str_replace_all(rgiid, "Satellitenschatten_2009_sued_Schatten_Gulkana", "Gulkana West"),
-         rgiid = str_replace_all(rgiid, "Satellitenschatten_2009_wirklich_Gulkana", "Gulkana East"))
-
-raw.0102.old <- raw.0102.old[raw.0102.old$rgiid == "Gulkana West" | raw.0102.old$rgiid == "Gulkana East", ]
-
-raw.0102.new <- read_csv("dh_01_02_rgi60_int.csv")
-raw.0102.new <- raw.0102.new %>%
-  filter(rgiid != "RGI60-01.00570")
+raw.0102 <- read_csv("dh_01_02_rgi60_int.csv")
+raw.0102 <- raw.0102 %>%
+  mutate(rgiid = str_replace_all(rgiid, "RGI60-01.00570-02", "Gulkana West"),
+         rgiid = str_replace_all(rgiid, "RGI60-01.00570", "Gulkana East"))
 
 raw.11     <- read_csv("dh_11_rgi60_int.csv")
 raw.131415 <- read_csv("dh_13_14_15_rgi60_int.csv")
 
-raw.all <- bind_rows(raw.0102.old, raw.0102.new, raw.11, raw.131415) %>%
+raw.all <- bind_rows(raw.0102, raw.11, raw.131415) %>%
   mutate(lower = dh - err_dh,
          upper = dh + err_dh) %>%
   mutate(rgiid = str_replace_all(rgiid, 
@@ -689,6 +716,8 @@ raw.all <- bind_rows(raw.0102.old, raw.0102.new, raw.11, raw.131415) %>%
                                  "Baltoro")) %>%
   rename(Glacier = rgiid)
 
+# Plot the data from Hugonnet et al. (2021), just for orientation.
+
 ggplot(data = raw.all, 
        mapping = aes(x = time,
                      y = dh)) +
@@ -699,6 +728,8 @@ ggplot(data = raw.all,
   xlab("Year") +
   ylab("Cumuluative elevation change (m)\n(Mean and 1 sigma measurement error")
 
+# Trim our data to the same study period of that of Hugonnet (2000-2019), and 
+# standardise the data to zero mean and unit standard deviation.
 
 glacier.2000 <- all_glaciers %>%
   filter(!is.na(Year), 
@@ -713,6 +744,8 @@ glacier.2000 <- all_glaciers %>%
          prev_mb_scale = scale_this(prev_mb)) %>% 
   mutate(id = 1: n()) %>% 
   mutate(year_date = as.Date(paste0(Year, "-07-01"), format = "%Y-%m-%d"))
+
+# As above, fit the model using weakly informed priors.
 
 bprior <- prior(normal(0, 2.5), class = "Intercept") +
   prior(normal(0, 2.5), class = "b") +
@@ -808,6 +841,9 @@ min_y <- glacier.2000 %>%
 
 trend.dh_y0.hdi <- left_join(trend.dh_y0.hdi.2000, min_y, by = "Glacier")
 
+# Figure 5: Plot the trend in glacier elevation change between 2000 and 2019 using 
+# our data in blue and that of Hugonnet et al. in green.
+
 elev.ch.2000 <- post_epred %>%
   ggplot() +
   facet_wrap(~Glacier, 
@@ -860,7 +896,7 @@ elev.ch.2000 <- post_epred %>%
 
 
 ggsave(
-  filename = "our_data_vs_hugonnet.pdf",
+  filename = "our_data_vs_hugonnet_updated.pdf",
   plot = elev.ch.2000,
   width = 180,
   height = 90,
@@ -869,7 +905,7 @@ ggsave(
 )
 
 ggsave(
-  filename = "our_data_vs_hugonnet.png",
+  filename = "our_data_vs_hugonnet_updated.png",
   plot = elev.ch.2000,
   width = 180,
   height = 90,
@@ -877,7 +913,7 @@ ggsave(
   dpi = 300
 )
 
-# Rates Hugonnet
+# Rates of elevation change from Hugonnet et al. (2021)
 
 r.13 <- read_csv("dh_13_14_15_rgi60_int_rates.csv") %>% 
   filter(period == "2000-01-01_2020-01-01") %>% 
@@ -892,9 +928,4 @@ r.0102 <- read_csv("dh_01_02_rgi60_int_rates.csv") %>%
   filter(period == "2000-01-01_2020-01-01") %>% 
   transmute(rgiid, period, dhdt, err_dhdt)
 
-
-r.0102 <- read_csv("D:/data/BoxUP/shadow paper/data/Romain/pfau_shadows/dh_01_02_rgi60_int_rates.csv") %>% 
-  filter(period == "2000-01-01_2020-01-01") %>% 
-  transmute(rgiid, period, dhdt, err_dhdt)
-
-
+# DONE!
